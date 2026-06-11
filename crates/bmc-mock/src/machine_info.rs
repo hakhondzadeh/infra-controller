@@ -356,7 +356,9 @@ impl HostMachineInfo {
     pub fn factory_default_account(&self) -> redfish::account_service::Account {
         // TODO: need to be updated for each individual system.
         let id = match self.hw_type {
-            HostHardwareType::NvidiaDgxH100 | HostHardwareType::GenericAmi => "2",
+            HostHardwareType::NvidiaDgxH100 | 
+            HostHardwareType::GenericAmi | 
+            HostHardwareType::LenovoGB300Nvl => "2",
             _ => DUMMY_FACTORY_USERNAME,
         };
         redfish::account_service::Account::administrator(
