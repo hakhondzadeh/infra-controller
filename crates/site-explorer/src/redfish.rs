@@ -230,8 +230,8 @@ impl RedfishClient {
                     .map_err(|err| redact_password(err, curr_password.as_str()))
                     .map_err(map_redfish_error)?;
             }
-            // Handle Vikings
-            RedfishVendor::AMI => {
+            // Handle Vikings and Lenovo GB300 (AMI BMC stack, admin account id "2")
+            RedfishVendor::AMI | RedfishVendor::LenovoGB300 => {
                 /*
                 https://docs.nvidia.com/dgx/dgxh100-user-guide/redfish-api-supp.html
 
