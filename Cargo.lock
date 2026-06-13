@@ -3073,6 +3073,7 @@ dependencies = [
 name = "carbide-uuid"
 version = "0.0.0"
 dependencies = [
+ "carbide-test-support",
  "data-encoding",
  "eyre",
  "prost",
