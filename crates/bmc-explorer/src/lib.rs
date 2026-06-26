@@ -196,7 +196,7 @@ pub async fn nv_generate_exploration_report<B: Bmc>(
                 chassis_id.starts_with("HGX_GPU_")
             }
             
-            Some(hw::HwType::Vr) => {
+            Some(hw::HwType::VeraRubin) => {
                 let chassis_id = chassis.chassis.id().into_inner();
                 chassis_id.starts_with("HGX_GPU_")
             }
@@ -318,7 +318,7 @@ pub(crate) fn hw_type<B: Bmc>(
             "NVIDIA"
                 if root.product() == Some(Product::new("VR NVL72")) =>
             {
-                Some(hw::HwType::Vr)
+                Some(hw::HwType::VeraRubin)
             }
             "WIWYNN" | "NVIDIA"
                 if root.product() == Some(Product::new("GB200 NVL"))
@@ -877,7 +877,7 @@ fn machine_setup_status<B: Bmc>(
             }
         }
 
-        hw::HwType::Gb200 | hw::HwType::Vr => {
+        hw::HwType::Gb200 | hw::HwType::VeraRubin => {
             if explored_system
                 .secure_boot_status()
                 .is_ok_and(|s| s.is_enabled)
@@ -890,7 +890,7 @@ fn machine_setup_status<B: Bmc>(
             }
             let expected_bios_attrs: &[hw::BiosAttr] = match hw_type {
                 hw::HwType::Gb200 => &hw::gb200::EXPECTED_BIOS_ATTRS,
-                hw::HwType::Vr => &hw::vr::EXPECTED_BIOS_ATTRS,
+                hw::HwType::VeraRubin => &hw::vera_rubin::EXPECTED_BIOS_ATTRS,
                 _ => unreachable!(),
             };
             diffs.extend(

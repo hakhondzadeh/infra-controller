@@ -17,7 +17,7 @@
 
 use crate::hw::BiosAttr;
 
-// Vera Rubin (VR) compute-tray host BMC: Systems/System_0, ServiceRoot Product "VR NVL72".
+// Vera Rubin compute-tray host BMC: Systems/System_0, ServiceRoot Product "VR NVL72".
 // Shares TPM / EmbeddedUefiShell with GB200; uses GpuExposeAsPcie instead of GB200's
 // Socket{0,1}Pcie6DisableOptionROM knobs.
 pub const EXPECTED_BIOS_ATTRS: [BiosAttr; 3] = [
