@@ -28,6 +28,7 @@ pub mod lenovo_ami;
 pub mod lenovo_gb300;
 pub mod supermicro;
 pub mod viking;
+pub mod vr;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HwType {
@@ -45,6 +46,7 @@ pub enum HwType {
     Viking,
     LiteonPowerShelf,
     NvSwitch,
+    Vr,
 }
 
 impl HwType {
@@ -66,6 +68,7 @@ impl HwType {
             Self::NvSwitch => Some(bmc_vendor::BMCVendor::Nvidia),
             Self::Supermicro => Some(bmc_vendor::BMCVendor::Supermicro),
             Self::Viking => Some(bmc_vendor::BMCVendor::Nvidia),
+            Self::Vr => Some(bmc_vendor::BMCVendor::Nvidia),
         }
     }
 
@@ -90,6 +93,8 @@ impl HwType {
             Self::NvSwitch => None,
             Self::Supermicro => None,
             Self::Viking => Some(BiosAttr::new_str("NvidiaInfiniteboot", "Enable")),
+            // Same EmbeddedUefiShell polarity as GB200 / libredfish NvidiaGBx00.
+            Self::Vr => Some(BiosAttr::new_str("EmbeddedUefiShell", "Disabled")),
         }
     }
 }

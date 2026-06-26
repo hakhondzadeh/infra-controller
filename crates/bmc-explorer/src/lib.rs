@@ -195,6 +195,11 @@ pub async fn nv_generate_exploration_report<B: Bmc>(
                 let chassis_id = chassis.chassis.id().into_inner();
                 chassis_id.starts_with("HGX_GPU_")
             }
+            
+            Some(hw::HwType::Vr) => {
+                let chassis_id = chassis.chassis.id().into_inner();
+                chassis_id.starts_with("HGX_GPU_")
+            }
             // No meaningful PCIeDevices.
             Some(
                 hw::HwType::Bluefield
@@ -310,6 +315,11 @@ pub(crate) fn hw_type<B: Bmc>(
             "Supermicro" => Some(hw::HwType::Supermicro),
             "HPE" => Some(hw::HwType::Hpe),
             "Nvidia" if system.id().into_inner() == "Bluefield" => Some(hw::HwType::Bluefield),
+            "NVIDIA"
+                if root.product() == Some(Product::new("VR NVL72")) =>
+            {
+                Some(hw::HwType::Vr)
+            }
             "WIWYNN" | "NVIDIA"
                 if root.product() == Some(Product::new("GB200 NVL"))
                     || root.product() == Some(Product::new("GB BMC")) =>
@@ -867,7 +877,7 @@ fn machine_setup_status<B: Bmc>(
             }
         }
 
-        hw::HwType::Gb200 => {
+        hw::HwType::Gb200 | hw::HwType::Vr => {
             if explored_system
                 .secure_boot_status()
                 .is_ok_and(|s| s.is_enabled)
@@ -878,16 +888,20 @@ fn machine_setup_status<B: Bmc>(
                     actual: "true".to_string(),
                 })
             }
-            // BIOS configuration:
+            let expected_bios_attrs: &[hw::BiosAttr] = match hw_type {
+                hw::HwType::Gb200 => &hw::gb200::EXPECTED_BIOS_ATTRS,
+                hw::HwType::Vr => &hw::vr::EXPECTED_BIOS_ATTRS,
+                _ => unreachable!(),
+            };
             diffs.extend(
-                hw::gb200::EXPECTED_BIOS_ATTRS
+                expected_bios_attrs
                     .iter()
                     .flat_map(|expected| explored_system.verify_bios_attr(expected)),
             );
             // Boot order
             if let Some(mac) = boot_interface_mac {
                 // Looking for UEFI Device path:
-                // VenHw(REDACTED)/MemoryMapped(REDACTED)/PciRoot(0x6)/Pci(0x0,0x0)/Pci(0x0,0x0)/Pci(0x0,0x0)/Pci(0x0,0x0)/MAC(020304050607,0x1)/IPv4(0.0.0.0)/Uri()
+                // VenHw(...)/.../MAC(020304050607,0x1)/IPv4(0.0.0.0)/Uri()
                 let actual = explored_system.boot_order_first_option();
                 let mac_str = format!("/MAC({},", mac.to_string().replace(":", ""));
                 let expected = explored_system.boot_options.iter().find(|option| {
