@@ -191,15 +191,12 @@ pub async fn nv_generate_exploration_report<B: Bmc>(
             ) => chassis.chassis.id().into_inner() == explored_system.system.id().into_inner(),
             // Provides only one Chassis.
             Some(hw::HwType::LenovoAmi) => true,
-            Some(hw::HwType::LenovoGb300 | hw::HwType::DgxGb300 | hw::HwType::SupermicroGb300) => {
-                let chassis_id = chassis.chassis.id().into_inner();
-                chassis_id.starts_with("HGX_GPU_")
-            }
-            
-            Some(hw::HwType::VeraRubin) => {
-                let chassis_id = chassis.chassis.id().into_inner();
-                chassis_id.starts_with("HGX_GPU_")
-            }
+            Some(
+                hw::HwType::LenovoGb300
+                | hw::HwType::DgxGb300
+                | hw::HwType::SupermicroGb300
+                | hw::HwType::VeraRubin,
+            ) => chassis.chassis.id().into_inner().starts_with("HGX_GPU_"),
             // No meaningful PCIeDevices.
             Some(
                 hw::HwType::Bluefield
@@ -888,16 +885,13 @@ fn machine_setup_status<B: Bmc>(
                     actual: "true".to_string(),
                 })
             }
-            let expected_bios_attrs: &[hw::BiosAttr] = match hw_type {
-                hw::HwType::Gb200 => &hw::gb200::EXPECTED_BIOS_ATTRS,
-                hw::HwType::VeraRubin => &hw::vera_rubin::EXPECTED_BIOS_ATTRS,
-                _ => unreachable!(),
-            };
-            diffs.extend(
-                expected_bios_attrs
-                    .iter()
-                    .flat_map(|expected| explored_system.verify_bios_attr(expected)),
-            );
+            if let Some(platform_bios_attrs) = hw_type.expected_bios_attrs() {
+                diffs.extend(
+                    platform_bios_attrs
+                        .iter()
+                        .flat_map(|attr| explored_system.verify_bios_attr(attr)),
+                );
+            }
             // Boot order
             if let Some(mac) = boot_interface_mac {
                 // Looking for UEFI Device path:
