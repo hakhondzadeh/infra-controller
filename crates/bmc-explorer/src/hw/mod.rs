@@ -27,8 +27,8 @@ pub mod lenovo;
 pub mod lenovo_ami;
 pub mod lenovo_gb300;
 pub mod supermicro;
-pub mod viking;
 pub mod vera_rubin;
+pub mod viking;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HwType {
