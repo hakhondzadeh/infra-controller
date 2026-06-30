@@ -872,7 +872,7 @@ fn machine_setup_status<B: Bmc>(
             }
         }
 
-        hw::HwType::Gb200 | hw::HwType::VeraRubin => {
+        hw::HwType::Gb200 => {
             if explored_system
                 .secure_boot_status()
                 .is_ok_and(|s| s.is_enabled)
@@ -883,14 +883,45 @@ fn machine_setup_status<B: Bmc>(
                     actual: "true".to_string(),
                 })
             }
-            if let Some(platform_bios_attrs) = hw_type.expected_bios_attrs() {
-                diffs.extend(
-                    platform_bios_attrs
-                        .iter()
-                        .flat_map(|attr| explored_system.verify_bios_attr(attr)),
-                );
+            diffs.extend(
+                hw::gb200::EXPECTED_BIOS_ATTRS
+                    .iter()
+                    .flat_map(|expected| explored_system.verify_bios_attr(expected)),
+            );
+            if let Some(mac) = boot_interface_mac {
+                // Looking for UEFI Device path:
+                // VenHw(...)/.../MAC(020304050607,0x1)/IPv4(0.0.0.0)/Uri()
+                let actual = explored_system.boot_order_first_option();
+                let mac_str = format!("/MAC({},", mac.to_string().replace(":", ""));
+                let expected = explored_system.boot_options.iter().find(|option| {
+                    option.uefi_device_path().is_some_and(|path| {
+                        path.inner().contains(&mac_str)
+                            && path.inner().contains("/IPv4(")
+                            && path.inner().ends_with("/Uri()")
+                    })
+                });
+                if let Some(diff) = compare_boot_options(expected, actual) {
+                    diffs.push(diff)
+                }
             }
-            // Boot order
+        }
+
+        hw::HwType::VeraRubin => {
+            if explored_system
+                .secure_boot_status()
+                .is_ok_and(|s| s.is_enabled)
+            {
+                diffs.push(MachineSetupDiff {
+                    key: "SecureBoot".to_string(),
+                    expected: "false".to_string(),
+                    actual: "true".to_string(),
+                })
+            }
+            diffs.extend(
+                hw::vera_rubin::EXPECTED_BIOS_ATTRS
+                    .iter()
+                    .flat_map(|expected| explored_system.verify_bios_attr(expected)),
+            );
             if let Some(mac) = boot_interface_mac {
                 // Looking for UEFI Device path:
                 // VenHw(...)/.../MAC(020304050607,0x1)/IPv4(0.0.0.0)/Uri()

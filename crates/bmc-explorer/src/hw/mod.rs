@@ -97,27 +97,6 @@ impl HwType {
             Self::VeraRubin => Some(BiosAttr::new_str("EmbeddedUefiShell", "Disabled")),
         }
     }
-
-    /// BIOS attributes verified in machine setup for this platform.
-    pub const fn expected_bios_attrs(self) -> Option<&'static [BiosAttr<'static>]> {
-        match self {
-            Self::Gb200 => Some(&gb200::EXPECTED_BIOS_ATTRS),
-            Self::VeraRubin => Some(&vera_rubin::EXPECTED_BIOS_ATTRS),
-            Self::Ami
-            | Self::Bluefield
-            | Self::Dell
-            | Self::DgxGb300
-            | Self::Hpe
-            | Self::Lenovo
-            | Self::LenovoAmi
-            | Self::LenovoGb300
-            | Self::SupermicroGb300
-            | Self::Supermicro
-            | Self::Viking
-            | Self::LiteonPowerShelf
-            | Self::NvSwitch => None,
-        }
-    }
 }
 
 #[derive(Clone, Copy)]
