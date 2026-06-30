@@ -883,14 +883,16 @@ fn machine_setup_status<B: Bmc>(
                     actual: "true".to_string(),
                 })
             }
+            // BIOS configuration:
             diffs.extend(
                 hw::gb200::EXPECTED_BIOS_ATTRS
                     .iter()
                     .flat_map(|expected| explored_system.verify_bios_attr(expected)),
             );
+            // Boot order
             if let Some(mac) = boot_interface_mac {
                 // Looking for UEFI Device path:
-                // VenHw(...)/.../MAC(020304050607,0x1)/IPv4(0.0.0.0)/Uri()
+                // VenHw(REDACTED)/MemoryMapped(REDACTED)/PciRoot(0x6)/Pci(0x0,0x0)/Pci(0x0,0x0)/Pci(0x0,0x0)/Pci(0x0,0x0)/MAC(020304050607,0x1)/IPv4(0.0.0.0)/Uri()
                 let actual = explored_system.boot_order_first_option();
                 let mac_str = format!("/MAC({},", mac.to_string().replace(":", ""));
                 let expected = explored_system.boot_options.iter().find(|option| {
