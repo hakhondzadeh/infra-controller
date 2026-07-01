@@ -1196,8 +1196,19 @@ pub enum EndpointExplorationError {
     /// This field just exists here until site-explorer updates existing records
     #[error("Endpoint is not a BMC with Redfish support at the specified URI")]
     MissingRedfish { uri: Option<String> },
-    #[error("BMC vendor field is not populated. Unsupported BMC.")]
-    MissingVendor,
+    /// The BMC's Redfish ServiceRoot (`/redfish/v1`) did not yield a vendor we
+    /// recognize. `observed` is the raw vendor string we read from the root —
+    /// the `Vendor` field, falling back to the first `Oem` key. `None` means the
+    /// BMC reported neither, which is commonly transient while the BMC is still
+    /// initializing/syncing (exploration will retry). `Some(value)` means the BMC
+    /// reported a vendor we don't support yet — `value` is what it sent.
+    #[error(
+        "BMC ServiceRoot (/redfish/v1) did not report a recognized vendor (observed Vendor/Oem = {observed:?}); an empty value usually means the BMC is still initializing and exploration will retry"
+    )]
+    MissingVendor {
+        #[serde(default)]
+        observed: Option<String>,
+    },
     #[error(
         "Site explorer will not explore this endpoint to avoid lockout: it could not login previously"
     )]
@@ -1306,7 +1317,7 @@ impl OperatorError for EndpointExplorationError {
                 ErrorCode::nico(SiteExplorer, 120)
             }
             EndpointExplorationError::MissingRedfish { .. } => ErrorCode::nico(SiteExplorer, 121),
-            EndpointExplorationError::MissingVendor => ErrorCode::nico(SiteExplorer, 122),
+            EndpointExplorationError::MissingVendor { .. } => ErrorCode::nico(SiteExplorer, 122),
             EndpointExplorationError::RedfishError { .. } => ErrorCode::nico(SiteExplorer, 130),
             EndpointExplorationError::VikingFWInventoryForbiddenError { .. } => {
                 ErrorCode::nico(SiteExplorer, 131)
@@ -1338,7 +1349,7 @@ impl OperatorError for EndpointExplorationError {
                 "Verify endpoint network reachability and that the BMC Redfish service is listening.",
             ),
             EndpointExplorationError::UnsupportedVendor { .. }
-            | EndpointExplorationError::MissingVendor => Some(
+            | EndpointExplorationError::MissingVendor { .. } => Some(
                 "Confirm the endpoint's BMC vendor and model are listed in the NICo Hardware \
                  Compatibility List \
                  (https://docs.nvidia.com/infra-controller/documentation/reference/hardware-compatibility-list); \
@@ -2036,6 +2047,36 @@ mod explored_mlx_device_tests {
     }
 
     #[test]
+    fn missing_vendor_decodes_legacy_unit_variant() {
+        // Records written before `observed` was added are stored as the bare
+        // internally-tagged unit form. They must still deserialize, defaulting
+        // `observed` to None.
+        let legacy: EndpointExplorationError =
+            serde_json::from_str(r#"{"Type":"MissingVendor"}"#).expect("legacy form must decode");
+        assert_eq!(
+            legacy,
+            EndpointExplorationError::MissingVendor { observed: None }
+        );
+    }
+
+    #[test]
+    fn missing_vendor_round_trips_with_observed() {
+        // New records carry the observed Vendor/Oem string and round-trip.
+        let with_observed = EndpointExplorationError::MissingVendor {
+            observed: Some("SomeNewVendor".to_string()),
+        };
+        let json = serde_json::to_string(&with_observed).expect("serialize");
+        let decoded: EndpointExplorationError = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(decoded, with_observed);
+
+        // And the absent case round-trips too.
+        let absent = EndpointExplorationError::MissingVendor { observed: None };
+        let json = serde_json::to_string(&absent).expect("serialize");
+        let decoded: EndpointExplorationError = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(decoded, absent);
+    }
+
+    #[test]
     fn dpu_part_number_reads_card1_part_number() {
         assert_eq!(
             dpu_report_with_card1_part_number(Some("900-9D3B6-00CV-AA0")).dpu_part_number(),
@@ -2427,7 +2468,7 @@ mod tests {
                 EndpointExplorationError::UnsupportedVendor {
                     vendor: "unknown".to_string(),
                 } => true,
-                EndpointExplorationError::MissingVendor => true,
+                EndpointExplorationError::MissingVendor { observed: None } => true,
             }
         );
     }
