@@ -839,11 +839,7 @@ async fn fetch_system(client: &dyn Redfish) -> Result<ComputerSystem, EndpointEx
         // 1. update system serial_number in case it is empty using chassis serial_number
         // 2. format serial_number data using the same rules as in fetch_chassis()
         if system.serial_number.is_none() {
-            let chassis = client
-                .get_chassis("Card1")
-                .await
-                .map_err(map_redfish_error)?;
-            system.serial_number = chassis.serial_number;
+            system.serial_number = fetch_dpu_chassis_serial_number(client).await;
         }
 
         base_mac = match client.get_base_mac_address().await {
@@ -912,6 +908,17 @@ async fn fetch_system(client: &dyn Redfish) -> Result<ComputerSystem, EndpointEx
         sku: system.sku,
         boot_order,
     })
+}
+
+async fn fetch_dpu_chassis_serial_number(client: &dyn Redfish) -> Option<String> {
+    for chassis_id in ["Card1", "BlueField_0"] {
+        if let Ok(chassis) = client.get_chassis(chassis_id).await
+            && chassis.serial_number.is_some()
+        {
+            return chassis.serial_number;
+        }
+    }
+    None
 }
 
 async fn fetch_ethernet_interfaces(

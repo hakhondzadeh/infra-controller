@@ -626,26 +626,23 @@ impl ExploredDpu {
             .report
             .create_temporary_dmi_data(serial_number, vendor, model);
 
-        let chassis_map = self
+        let inventory_map = self.report.get_inventory_map();
+        let dpu_card_chassis = self
             .report
             .chassis
             .iter()
-            .map(|x| (x.id.as_str(), x))
-            .collect::<HashMap<_, _>>();
-        let inventory_map = self.report.get_inventory_map();
+            .find(|chassis| is_dpu_card_chassis_id(&chassis.id));
 
         let dpu_data = DpuData {
             factory_mac_address: self
                 .host_pf_mac_address
                 .ok_or(ModelError::MissingArgument("Missing base mac"))?
                 .to_string(),
-            part_number: chassis_map
-                .get("Card1")
+            part_number: dpu_card_chassis
                 .and_then(|value| value.part_number.as_ref())
                 .unwrap_or(&"".to_string())
                 .to_string(),
-            part_description: chassis_map
-                .get("Card1")
+            part_description: dpu_card_chassis
                 .and_then(|value| value.model.as_ref())
                 .unwrap_or(&"".to_string())
                 .to_string(),
@@ -829,7 +826,7 @@ impl EndpointExplorationReport {
 
         self.chassis
             .iter()
-            .find(|chassis| chassis.id == "Card1")
+            .find(|chassis| is_dpu_card_chassis_id(&chassis.id))
             .and_then(chassis_part_number)
             .or_else(|| {
                 // BF4 DPU BMC firmware often leaves Card1 empty and publishes the
@@ -883,13 +880,10 @@ impl EndpointExplorationReport {
             return None;
         }
 
-        let chassis_map = self
+        let model = self
             .chassis
             .iter()
-            .map(|x| (x.id.as_str(), x))
-            .collect::<HashMap<_, _>>();
-        let model = chassis_map
-            .get("Card1")
+            .find(|chassis| is_dpu_card_chassis_id(&chassis.id))
             .and_then(|value| value.model.as_ref())
             .unwrap_or(&"".to_string())
             .to_string();
@@ -946,7 +940,7 @@ impl EndpointExplorationReport {
                     // depending on chassis collection order or unrelated component serials.
                     self.chassis
                         .iter()
-                        .find(|chassis| chassis.id == "Bluefield_BMC")
+                        .find(|chassis| is_dpu_product_chassis_id(&chassis.id))
                         .and_then(|chassis| chassis.serial_number.as_deref().map(str::trim))
                         .filter(|serial| !serial.trim().is_empty())
                 })?
@@ -1757,6 +1751,16 @@ fn is_dpu_product_chassis_id(id: &str) -> bool {
     matches!(id, "Bluefield_BMC" | "BlueField_BMC_0")
 }
 
+/// Whether a DPU card chassis member carries part/model identity (Card1 / BlueField_0).
+fn is_dpu_card_chassis_id(id: &str) -> bool {
+    id == "Card1"
+        || id == "Card1_0"
+        || id == "BlueField"
+        || id == "BlueField_0"
+        || id == "Bluefield"
+        || id == "Bluefield_0"
+}
+
 fn chassis_part_number(chassis: &Chassis) -> Option<&str> {
     chassis
         .part_number
@@ -1957,7 +1961,7 @@ impl EndpointExplorationReport {
                 // host BMC reports for the PCIe/network-adapter device.
                 self.chassis
                     .iter()
-                    .find(|chassis| chassis.id == "Bluefield_BMC")
+                    .find(|chassis| is_dpu_product_chassis_id(&chassis.id))
                     .and_then(|chassis| chassis.serial_number.as_deref())
                     .map(str::trim)
                     .filter(|serial| !serial.is_empty())
@@ -2163,6 +2167,44 @@ mod explored_mlx_device_tests {
             Some("900-9D3B6-00CV-AA0"),
             "Card1 part number must win when present"
         );
+    }
+
+    #[test]
+    fn dpu_part_number_accepts_bluefield_0_card_chassis() {
+        const VR_BF4_PART: &str = "900-9D4A4-00CB-TS4";
+        let report = EndpointExplorationReport {
+            systems: vec![ComputerSystem {
+                id: "Bluefield".to_string(),
+                ..Default::default()
+            }],
+            chassis: vec![Chassis {
+                id: "BlueField_0".to_string(),
+                part_number: Some(VR_BF4_PART.to_string()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        assert_eq!(report.dpu_part_number(), Some(VR_BF4_PART));
+    }
+
+    #[test]
+    fn dpu_pairing_serial_accepts_bluefield_bmc_optional_zero_suffix() {
+        const BF4_SERIAL: &str = "MT020000000003";
+        let report = EndpointExplorationReport {
+            systems: vec![ComputerSystem {
+                id: "Bluefield".to_string(),
+                serial_number: None,
+                ..Default::default()
+            }],
+            chassis: vec![Chassis {
+                id: "BlueField_BMC_0".to_string(),
+                serial_number: Some(BF4_SERIAL.to_string()),
+                ..Default::default()
+            }],
+            ..Default::default()
+        };
+        assert_eq!(report.dpu_pairing_serial_number(), Some(BF4_SERIAL));
+        assert_eq!(report.machine_id_serial_number(), Some(BF4_SERIAL));
     }
 
     #[test]

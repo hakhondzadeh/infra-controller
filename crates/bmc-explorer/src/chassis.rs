@@ -123,7 +123,7 @@ impl<B: Bmc> ExploredChassisCollection<B> {
     pub fn is_bluefield2(&self) -> bool {
         self.members
             .iter()
-            .find(|c| c.chassis.id().into_inner() == "Card1")
+            .find(|c| is_dpu_card_chassis_id(c.chassis.id().into_inner()))
             .is_some_and(|c| {
                 let hw_id = c.chassis.hardware_id();
                 hw_id.manufacturer == Some(Manufacturer::new("Nvidia"))
@@ -142,8 +142,8 @@ impl<B: Bmc> ExploredChassisCollection<B> {
         let maybe_sn = self
             .members
             .iter()
-            .find(|c| c.chassis.id().into_inner() == "Card1")
-            .ok_or_else(Error::bmc_not_provided("chassis with id Card1"))?
+            .find(|c| is_dpu_card_chassis_id(c.chassis.id().into_inner()))
+            .ok_or_else(Error::bmc_not_provided("chassis with id Card1/BlueField_0"))?
             .chassis
             .hardware_id()
             .serial_number
@@ -173,6 +173,10 @@ impl<B: Bmc> ExploredChassisCollection<B> {
         }
         Ok(pcie_devices)
     }
+}
+
+fn is_dpu_card_chassis_id(id: &str) -> bool {
+    id.eq_ignore_ascii_case("Card1") || id.eq_ignore_ascii_case("BlueField_0")
 }
 
 pub struct ExploredChassis<B: Bmc> {

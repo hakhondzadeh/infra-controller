@@ -86,8 +86,20 @@ fn build_chassis_explore_config<B: Bmc>(root: &ServiceRoot<B>) -> chassis::Confi
         // BlueField_ERoT we just skip it.
         lazy_fetch: (root.vendor() == Some(Vendor::new("Nvidia"))
             && root.product() == Some(Product::new("BlueField-3 DPU")))
-        .then_some(|odata_id| odata_id.last_segment() != Some("Bluefield_ERoT")),
+        .then_some(|odata_id| {
+            !odata_id
+                .last_segment()
+                .is_some_and(is_bluefield_erot_chassis_id)
+        }),
     }
+}
+
+fn is_bluefield_erot_chassis_id(id: &str) -> bool {
+    let normalized = id.to_ascii_lowercase();
+    normalized == "bluefield_erot"
+        || normalized.starts_with("bluefield_erot_")
+        || normalized.starts_with("bluefield_erot_bmc")
+        || normalized.starts_with("bluefield_erot_cpu")
 }
 
 pub async fn nv_generate_exploration_report<B: Bmc>(
